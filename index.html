@@ -198,15 +198,11 @@
                 '手紙をもらう', 
                 ''
             ];
-
-            const colors = ['#ffebee', '#fffde7', '#f1f8e9', '#e3f2fd']; 
             
-            const sectionWidth = graphWidth / numSections;
-            for (let i = 0; i < numSections; i++) {
-                ctx.fillStyle = colors[Math.floor(i / 2)];
-                ctx.fillRect(xOffset + i * sectionWidth, yOffset, sectionWidth, graphHeight);
-            }
-
+            // Draw a single white background for the graph area
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(xOffset, yOffset, graphWidth, graphHeight);
+            
             ctx.strokeStyle = '#e2e8f0';
             ctx.lineWidth = 1;
             for (let i = 0; i <= 10; i++) {
