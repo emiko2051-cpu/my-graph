@@ -43,9 +43,9 @@
 <body class="bg-gray-100 flex items-center justify-center p-4">
 
     <div class="container mx-auto p-8 bg-white rounded-3xl shadow-xl max-w-4xl">
-        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">心の折れ線グラフ</h1>
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">気もちグラフ</h1>
         <p class="text-center text-gray-600 mb-8">
-            グラフ上の点をクリックしてドラッグすると、グラフの形を変えることができます。
+            がまくんは青、かえるくんは赤で気もちをあらわそう。
         </p>
 
         <div class="canvas-container">
@@ -55,248 +55,355 @@
         <div class="mt-8 flex flex-wrap justify-center sm:justify-between items-center text-center text-gray-600">
             <div class="flex items-center mx-2 my-1 sm:my-0">
                 <span class="inline-block w-4 h-4 rounded-full bg-red-500 mr-2"></span>
-                <span>しあわせ</span>
+                <span>かえるくん</span>
             </div>
             <div class="flex items-center mx-2 my-1 sm:my-0">
                 <span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2"></span>
-                <span>ふしあわせ</span>
+                <span>がまくん</span>
             </div>
         </div>
+
+        <div class="flex justify-center mt-6">
+            <button id="saveButton" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-full shadow-lg transition duration-300">
+                グラフをほぞん
+            </button>
+        </div>
+        
+        <div id="statusMessage" class="mt-4 text-center text-sm text-gray-500"></div>
+
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const canvas = document.getElementById('graphCanvas');
-            const ctx = canvas.getContext('2d');
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-            // padding変数をグローバルスコープで定義
-            const padding = 20;
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-            const numSections = 9;
-            let happinessData = [];
-            let unhappinessData = [];
-            let isDragging = false;
-            let draggingPoint = null; // { type: 'happiness' or 'unhappiness', index: number }
+        let db, auth, userId;
 
-            const resizeCanvas = () => {
-                canvas.width = canvas.offsetWidth;
-                canvas.height = canvas.offsetHeight;
-                drawGraph();
-            };
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const saveButton = document.getElementById('saveButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const padding = 20;
+        const numSections = 8;
+        let happinessData = [];
+        let unhappinessData = [];
+        let isDragging = false;
+        let draggingPoint = null;
 
-            const generateRandomData = () => {
-                happinessData = Array.from({ length: numSections + 1 }, () => Math.random());
-                unhappinessData = Array.from({ length: numSections + 1 }, () => Math.random());
-            };
+        // Firebase Initialization and Authentication
+        async function initializeFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
 
-            const drawGraph = () => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Define dimensions
-                const graphWidth = canvas.width - padding * 2;
-                const graphHeight = canvas.height - padding * 2;
-                const xOffset = padding;
-                const yOffset = padding;
-
-                // Draw background grid lines
-                ctx.strokeStyle = '#e2e8f0';
-                ctx.lineWidth = 1;
-                for (let i = 0; i <= 10; i++) {
-                    const y = yOffset + graphHeight * (i / 10);
-                    ctx.beginPath();
-                    ctx.moveTo(xOffset, y);
-                    ctx.lineTo(xOffset + graphWidth, y);
-                    ctx.stroke();
-                }
-                
-                // Draw lines and points
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-                
-                // Draw happiness line
-                ctx.strokeStyle = '#ef4444'; // red-500
-                ctx.beginPath();
-                ctx.moveTo(xOffset + graphWidth * (0 / numSections), yOffset + graphHeight * (1 - happinessData[0]));
-                for (let i = 1; i <= numSections; i++) {
-                    const x = xOffset + graphWidth * (i / numSections);
-                    const y = yOffset + graphHeight * (1 - happinessData[i]);
-                    ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-
-                // Draw unhappiness line
-                ctx.strokeStyle = '#3b82f6'; // blue-500
-                ctx.beginPath();
-                ctx.moveTo(xOffset + graphWidth * (0 / numSections), yOffset + graphHeight * (1 - unhappinessData[0]));
-                for (let i = 1; i <= numSections; i++) {
-                    const x = xOffset + graphWidth * (i / numSections);
-                    const y = yOffset + graphHeight * (1 - unhappinessData[i]);
-                    ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-
-                // Draw points on the lines
-                ctx.fillStyle = '#ef4444';
-                for (let i = 0; i <= numSections; i++) {
-                    const x = xOffset + graphWidth * (i / numSections);
-                    const y = yOffset + graphHeight * (1 - happinessData[i]);
-                    ctx.beginPath();
-                    ctx.arc(x, y, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                ctx.fillStyle = '#3b82f6';
-                for (let i = 0; i <= numSections; i++) {
-                    const x = xOffset + graphWidth * (i / numSections);
-                    const y = yOffset + graphHeight * (1 - unhappinessData[i]);
-                    ctx.beginPath();
-                    ctx.arc(x, y, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                // Draw labels on the right y-axis
-                ctx.fillStyle = '#2d3748';
-                ctx.font = '16px Inter';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('しあわせ', xOffset + graphWidth + 10, yOffset + graphHeight * 0.1);
-                ctx.fillText('ふしあわせ', xOffset + graphWidth + 10, yOffset + graphHeight * 0.9);
-
-                // Draw time labels at the bottom
-                ctx.textAlign = 'center';
-                for (let i = 0; i <= numSections; i++) {
-                    const x = xOffset + graphWidth * (i / numSections);
-                    ctx.fillText(`${i}日目`, x, yOffset + graphHeight + 15);
-                }
-            };
-
-            const getMousePos = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                return {
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top
-                };
-            };
-
-            canvas.addEventListener('mousedown', (e) => {
-                const mousePos = getMousePos(e);
-                const clickTolerance = 12;
-
-                // Check happiness points
-                for (let i = 0; i <= numSections; i++) {
-                    const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
-                    const pointY = padding + (canvas.height - padding * 2) * (1 - happinessData[i]);
-                    const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
-                    if (dist < clickTolerance) {
-                        isDragging = true;
-                        draggingPoint = { type: 'happiness', index: i };
-                        return;
-                    }
-                }
-
-                // Check unhappiness points
-                for (let i = 0; i <= numSections; i++) {
-                    const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
-                    const pointY = padding + (canvas.height - padding * 2) * (1 - unhappinessData[i]);
-                    const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
-                    if (dist < clickTolerance) {
-                        isDragging = true;
-                        draggingPoint = { type: 'unhappiness', index: i };
-                        return;
-                    }
-                }
-            });
-
-            canvas.addEventListener('mousemove', (e) => {
-                if (!isDragging || !draggingPoint) return;
-
-                const mousePos = getMousePos(e);
-                const graphHeight = canvas.height - padding * 2;
-                const newYValue = 1 - ((mousePos.y - padding) / graphHeight);
-                const clampedYValue = Math.max(0, Math.min(1, newYValue));
-
-                if (draggingPoint.type === 'happiness') {
-                    happinessData[draggingPoint.index] = clampedYValue;
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    unhappinessData[draggingPoint.index] = clampedYValue;
+                    await signInAnonymously(auth);
                 }
 
-                drawGraph();
-            });
+                userId = auth.currentUser.uid;
+                loadGraphData();
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                statusMessage.textContent = "保存機能の読み込みに失敗しました。";
+            }
+        }
 
-            canvas.addEventListener('mouseup', () => {
-                isDragging = false;
-                draggingPoint = null;
-            });
-            
-            // For touch devices
-            canvas.addEventListener('touchstart', (e) => {
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                const mousePos = {
-                    x: touch.clientX - rect.left,
-                    y: touch.clientY - rect.top
-                };
-                const clickTolerance = 12;
+        // Load graph data from Firestore
+        async function loadGraphData() {
+            if (!userId) {
+                console.warn("User not authenticated. Cannot load data.");
+                return;
+            }
 
-                // Check happiness points
-                for (let i = 0; i <= numSections; i++) {
-                    const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
-                    const pointY = padding + (canvas.height - padding * 2) * (1 - happinessData[i]);
-                    const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
-                    if (dist < clickTolerance) {
-                        isDragging = true;
-                        draggingPoint = { type: 'happiness', index: i };
-                        return;
-                    }
-                }
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/graphData/current`);
+                const docSnap = await getDoc(docRef);
 
-                // Check unhappiness points
-                for (let i = 0; i <= numSections; i++) {
-                    const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
-                    const pointY = padding + (canvas.height - padding * 2) * (1 - unhappinessData[i]);
-                    const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
-                    if (dist < clickTolerance) {
-                        isDragging = true;
-                        draggingPoint = { type: 'unhappiness', index: i };
-                        return;
-                    }
-                }
-            }, { passive: true });
-
-            canvas.addEventListener('touchmove', (e) => {
-                if (!isDragging || !draggingPoint) return;
-                e.preventDefault(); // Prevent default scroll
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                const mousePos = {
-                    x: touch.clientX - rect.left,
-                    y: touch.clientY - rect.top
-                };
-                const graphHeight = canvas.height - padding * 2;
-                const newYValue = 1 - ((mousePos.y - padding) / graphHeight);
-                const clampedYValue = Math.max(0, Math.min(1, newYValue));
-
-                if (draggingPoint.type === 'happiness') {
-                    happinessData[draggingPoint.index] = clampedYValue;
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    happinessData = data.happinessData;
+                    unhappinessData = data.unhappinessData;
+                    statusMessage.textContent = "前回保存したデータを読み込みました。";
+                    drawGraph();
                 } else {
-                    unhappinessData[draggingPoint.index] = clampedYValue;
+                    generateRandomData();
+                    drawGraph();
+                    statusMessage.textContent = "新しいグラフを開始します。";
                 }
-
+            } catch (e) {
+                console.error("Error loading document: ", e);
+                statusMessage.textContent = "データの読み込み中にエラーが発生しました。";
+                generateRandomData();
                 drawGraph();
-            }, { passive: false });
+            }
+        }
 
-            canvas.addEventListener('touchend', () => {
-                isDragging = false;
-                draggingPoint = null;
-            });
+        // Save graph data to Firestore
+        async function saveGraphData() {
+            if (!userId) {
+                console.warn("User not authenticated. Cannot save data.");
+                statusMessage.textContent = "認証エラー：データを保存できません。";
+                return;
+            }
+
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/graphData/current`);
+                await setDoc(docRef, {
+                    happinessData: happinessData,
+                    unhappinessData: unhappinessData,
+                    timestamp: new Date()
+                });
+                statusMessage.textContent = "グラフを保存しました。";
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                statusMessage.textContent = "データの保存中にエラーが発生しました。";
+            }
+        }
+
+        const resizeCanvas = () => {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            drawGraph();
+        };
+
+        const generateRandomData = () => {
+            happinessData = Array.from({ length: numSections + 1 }, () => Math.random());
+            unhappinessData = Array.from({ length: numSections + 1 }, () => Math.random());
+        };
+
+        const drawGraph = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const graphWidth = canvas.width - padding * 2;
+            const graphHeight = canvas.height - padding * 2;
+            const xOffset = padding;
+            const yOffset = padding;
             
-            window.addEventListener('resize', resizeCanvas);
+            const labels = [
+                '', 
+                '手紙をまつ', 
+                '', 
+                '手紙を書く', 
+                '', 
+                '手紙をまつ', 
+                '', 
+                '手紙をもらう', 
+                ''
+            ];
 
-            // Initial setup
-            generateRandomData();
-            resizeCanvas();
+            const colors = ['#ffebee', '#fffde7', '#f1f8e9', '#e3f2fd']; 
+            
+            const sectionWidth = graphWidth / numSections;
+            for (let i = 0; i < numSections; i++) {
+                ctx.fillStyle = colors[Math.floor(i / 2)];
+                ctx.fillRect(xOffset + i * sectionWidth, yOffset, sectionWidth, graphHeight);
+            }
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const y = yOffset + graphHeight * (i / 10);
+                ctx.beginPath();
+                ctx.moveTo(xOffset, y);
+                ctx.lineTo(xOffset + graphWidth, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#a0aec0';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            const centerY = yOffset + graphHeight / 2;
+            ctx.moveTo(xOffset, centerY);
+            ctx.lineTo(xOffset + graphWidth, centerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            
+            ctx.strokeStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(xOffset + graphWidth * (0 / numSections), yOffset + graphHeight * (1 - happinessData[0]));
+            for (let i = 1; i <= numSections; i++) {
+                const x = xOffset + graphWidth * (i / numSections);
+                const y = yOffset + graphHeight * (1 - happinessData[i]);
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.moveTo(xOffset + graphWidth * (0 / numSections), yOffset + graphHeight * (1 - unhappinessData[0]));
+            for (let i = 1; i <= numSections; i++) {
+                const x = xOffset + graphWidth * (i / numSections);
+                const y = yOffset + graphHeight * (1 - unhappinessData[i]);
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef4444';
+            for (let i = 0; i <= numSections; i++) {
+                const x = xOffset + graphWidth * (i / numSections);
+                const y = yOffset + graphHeight * (1 - happinessData[i]);
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#3b82f6';
+            for (let i = 0; i <= numSections; i++) {
+                const x = xOffset + graphWidth * (i / numSections);
+                const y = yOffset + graphHeight * (1 - unhappinessData[i]);
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#2d3748';
+            ctx.font = '16px Inter';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('しあわせ', xOffset + graphWidth + 10, yOffset + graphHeight * 0.1);
+            ctx.fillText('ふしあわせ', xOffset + graphWidth + 10, yOffset + graphHeight * 0.9);
+
+            ctx.textAlign = 'center';
+            for (let i = 0; i <= numSections; i++) {
+                const x = xOffset + graphWidth * (i / numSections);
+                ctx.fillText(labels[i], x, yOffset + graphHeight + 15);
+            }
+        };
+
+        const getMousePos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        };
+
+        canvas.addEventListener('mousedown', (e) => {
+            const mousePos = getMousePos(e);
+            const clickTolerance = 12;
+
+            for (let i = 0; i <= numSections; i++) {
+                const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
+                const pointY = padding + (canvas.height - padding * 2) * (1 - happinessData[i]);
+                const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
+                if (dist < clickTolerance) {
+                    isDragging = true;
+                    draggingPoint = { type: 'happiness', index: i };
+                    return;
+                }
+            }
+
+            for (let i = 0; i <= numSections; i++) {
+                const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
+                const pointY = padding + (canvas.height - padding * 2) * (1 - unhappinessData[i]);
+                const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
+                if (dist < clickTolerance) {
+                    isDragging = true;
+                    draggingPoint = { type: 'unhappiness', index: i };
+                    return;
+                }
+            }
         });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging || !draggingPoint) return;
+
+            const mousePos = getMousePos(e);
+            const graphHeight = canvas.height - padding * 2;
+            const newYValue = 1 - ((mousePos.y - padding) / graphHeight);
+            const clampedYValue = Math.max(0, Math.min(1, newYValue));
+
+            if (draggingPoint.type === 'happiness') {
+                happinessData[draggingPoint.index] = clampedYValue;
+            } else {
+                unhappinessData[draggingPoint.index] = clampedYValue;
+            }
+
+            drawGraph();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            draggingPoint = null;
+        });
+        
+        canvas.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const mousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+            const clickTolerance = 12;
+
+            for (let i = 0; i <= numSections; i++) {
+                const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
+                const pointY = padding + (canvas.height - padding * 2) * (1 - happinessData[i]);
+                const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
+                if (dist < clickTolerance) {
+                    isDragging = true;
+                    draggingPoint = { type: 'happiness', index: i };
+                    return;
+                }
+            }
+
+            for (let i = 0; i <= numSections; i++) {
+                const pointX = padding + (canvas.width - padding * 2) * (i / numSections);
+                const pointY = padding + (canvas.height - padding * 2) * (1 - unhappinessData[i]);
+                const dist = Math.sqrt(Math.pow(mousePos.x - pointX, 2) + Math.pow(mousePos.y - pointY, 2));
+                if (dist < clickTolerance) {
+                    isDragging = true;
+                    draggingPoint = { type: 'unhappiness', index: i };
+                    return;
+                }
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging || !draggingPoint) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const mousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+            const graphHeight = canvas.height - padding * 2;
+            const newYValue = 1 - ((mousePos.y - padding) / graphHeight);
+            const clampedYValue = Math.max(0, Math.min(1, newYValue));
+
+            if (draggingPoint.type === 'happiness') {
+                happinessData[draggingPoint.index] = clampedYValue;
+            } else {
+                unhappinessData[draggingPoint.index] = clampedYValue;
+            }
+
+            drawGraph();
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+            draggingPoint = null;
+        });
+
+        saveButton.addEventListener('click', saveGraphData);
+        window.addEventListener('resize', resizeCanvas);
+
+        // Initial setup
+        initializeFirebase();
+        resizeCanvas();
     </script>
 </body>
 </html>
