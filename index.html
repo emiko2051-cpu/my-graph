@@ -213,16 +213,6 @@
                 ctx.lineTo(xOffset + graphWidth, y);
                 ctx.stroke();
             }
-
-            ctx.strokeStyle = '#a0aec0';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            const centerY = yOffset + graphHeight / 2;
-            ctx.moveTo(xOffset, centerY);
-            ctx.lineTo(xOffset + graphWidth, centerY);
-            ctx.stroke();
-            ctx.setLineDash([]);
             
             ctx.lineWidth = 4;
             ctx.lineCap = 'round';
