@@ -27,8 +27,9 @@
         }
         .canvas-container {
             position: relative;
-            width: 100%;
-            padding-bottom: 60%; /* 16:9 Aspect Ratio */
+            width: 90%; /* Scale the container to 90% to reduce whitespace */
+            margin: 0 auto;
+            padding-bottom: 70%;
         }
         canvas {
             position: absolute;
@@ -266,10 +267,11 @@
 
             ctx.fillStyle = '#2d3748';
             ctx.font = '16px Inter';
-            ctx.textAlign = 'left';
+            // Align text to the right and move to the right of the graph
+            ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            ctx.fillText('しあわせ', xOffset + graphWidth + 10, yOffset + graphHeight * 0.1);
-            ctx.fillText('ふしあわせ', xOffset + graphWidth + 10, yOffset + graphHeight * 0.9);
+            ctx.fillText('しあわせ', xOffset + graphWidth - 10, yOffset + graphHeight * 0.1);
+            ctx.fillText('ふしあわせ', xOffset + graphWidth - 10, yOffset + graphHeight * 0.9);
 
             ctx.textAlign = 'center';
             for (let i = 0; i <= numSections; i++) {
