@@ -27,7 +27,7 @@
         }
         .canvas-container {
             position: relative;
-            width: 90%; /* Scale the container to 90% to reduce whitespace */
+            width: 90%;
             margin: 0 auto;
             padding-bottom: 70%;
         }
@@ -64,111 +64,17 @@
             </div>
         </div>
 
-        <div class="flex justify-center mt-6">
-            <button id="saveButton" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-full shadow-lg transition duration-300">
-                グラフをほぞん
-            </button>
-        </div>
-        
-        <div id="statusMessage" class="mt-4 text-center text-sm text-gray-500"></div>
-
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let db, auth, userId;
-
         const canvas = document.getElementById('graphCanvas');
         const ctx = canvas.getContext('2d');
-        const saveButton = document.getElementById('saveButton');
-        const statusMessage = document.getElementById('statusMessage');
         const padding = 20;
         const numSections = 8;
         let happinessData = [];
         let unhappinessData = [];
         let isDragging = false;
         let draggingPoint = null;
-
-        // Firebase Initialization and Authentication
-        async function initializeFirebase() {
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                userId = auth.currentUser.uid;
-                loadGraphData();
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                statusMessage.textContent = "保存機能の読み込みに失敗しました。";
-            }
-        }
-
-        // Load graph data from Firestore
-        async function loadGraphData() {
-            if (!userId) {
-                console.warn("User not authenticated. Cannot load data.");
-                return;
-            }
-
-            try {
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/graphData/current`);
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    happinessData = data.happinessData;
-                    unhappinessData = data.unhappinessData;
-                    statusMessage.textContent = "前回保存したデータを読み込みました。";
-                    drawGraph();
-                } else {
-                    generateRandomData();
-                    drawGraph();
-                    statusMessage.textContent = "新しいグラフを開始します。";
-                }
-            } catch (e) {
-                console.error("Error loading document: ", e);
-                statusMessage.textContent = "データの読み込み中にエラーが発生しました。";
-                generateRandomData();
-                drawGraph();
-            }
-        }
-
-        // Save graph data to Firestore
-        async function saveGraphData() {
-            if (!userId) {
-                console.warn("User not authenticated. Cannot save data.");
-                statusMessage.textContent = "認証エラー：データを保存できません。";
-                return;
-            }
-
-            try {
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/graphData/current`);
-                await setDoc(docRef, {
-                    happinessData: happinessData,
-                    unhappinessData: unhappinessData,
-                    timestamp: new Date()
-                });
-                statusMessage.textContent = "グラフを保存しました。";
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                statusMessage.textContent = "データの保存中にエラーが発生しました。";
-            }
-        }
 
         const resizeCanvas = () => {
             canvas.width = canvas.offsetWidth;
@@ -386,11 +292,10 @@
             draggingPoint = null;
         });
 
-        saveButton.addEventListener('click', saveGraphData);
         window.addEventListener('resize', resizeCanvas);
 
         // Initial setup
-        initializeFirebase();
+        generateRandomData();
         resizeCanvas();
     </script>
 </body>
